@@ -150,6 +150,7 @@ abstract class CActiveRecord extends CModel
 	 * This method is overridden so that AR attributes can be accessed like properties.
 	 * @param string $name property name
 	 * @param mixed $value property value
+	 * @throws CException
 	 */
 	public function __set($name,$value)
 	{
@@ -188,6 +189,7 @@ abstract class CActiveRecord extends CModel
 	 * This method overrides the parent implementation by clearing
 	 * the specified attribute value.
 	 * @param string $name the property name or the event name
+	 * @throws CException
 	 */
 	public function __unset($name)
 	{
@@ -2022,8 +2024,10 @@ class CBaseActiveRelation extends CComponent
 			$criteria=$criteria->toArray();
 		if(isset($criteria['select']) && $this->select!==$criteria['select'])
 		{
-			if($this->select==='*')
+			if($this->select==='*'||$this->select===false)
 				$this->select=$criteria['select'];
+			elseif($criteria['select']===false)
+				$this->select=false;
 			elseif($criteria['select']!=='*')
 			{
 				$select1=is_string($this->select)?preg_split('/\s*,\s*/',trim($this->select),-1,PREG_SPLIT_NO_EMPTY):$this->select;
