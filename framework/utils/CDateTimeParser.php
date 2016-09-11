@@ -65,6 +65,8 @@ class CDateTimeParser
 	 * @since 1.1.13
 	 */
 	private static $_mbstringAvailable;
+	
+	private static $_unsupported = array('zzzz'); //milliseconds
 
 	/**
 	 * Converts a date string to a timestamp.
@@ -84,40 +86,64 @@ class CDateTimeParser
 			self::$_mbstringAvailable=extension_loaded('mbstring');
 
 		$tokens=self::tokenize($pattern);
+		
+		//Remove unsupported tokens, so when we are updating they're not required
+		foreach($tokens as $k=>$t) {
+			if ( in_array($t,self::$_unsupported) )
+				unset($tokens[$k]);
+		}
+		
+		//Chop off an empty tail element (we may have removed from the end)
+		while ( count($tokens)>0 && $tokens[count($tokens)-1]  == ' ' )
+			array_pop ($tokens);
+		
+		//Chop off an empty head element (we may have removed from the start)
+		while ( count($tokens)>0 && $tokens[0] == ' ')
+			array_shift($tokens);
+		
+		//echo '++++--------<br/>';print_r($tokens);echo '<br/>Value:'.$value.'<br/>';
 		$i=0;
 		$n=self::$_mbstringAvailable ? mb_strlen($value,Yii::app()->charset) : strlen($value);
 		foreach($tokens as $token)
 		{
 			switch($token)
 			{
+				case 'y':
 				case 'yyyy':
 				case 'y':
 				{
-					if(($year=self::parseInteger($value,$i,4,4))===false)
+					if(($year=self::parseInteger($value,$i,4,4))===false) {
+						echo '**FAILED y/yyyy**';
 						return false;
+					}
 					$i+=4;
 					break;
 				}
 				case 'yy':
 				{
-					if(($year=self::parseInteger($value,$i,1,2))===false)
+					if(($year=self::parseInteger($value,$i,1,2))===false) {
+						echo '**FAILED yy**';
 						return false;
+					}
 					$i+=strlen($year);
 					break;
 				}
 				case 'MMMM':
 				{
 					$monthName='';
-					if(($month=self::parseMonth($value,$i,'wide',$monthName))===false)
+					if(($month=self::parseMonth2($value,$i,'wide',$monthName))===false)
 						return false;
+						
 					$i+=self::$_mbstringAvailable ? mb_strlen($monthName,Yii::app()->charset) : strlen($monthName);
 					break;
 				}
 				case 'MMM':
 				{
 					$monthName='';
-					if(($month=self::parseMonth($value,$i,'abbreviated',$monthName))===false)
+					if(($month=self::parseMonth2($value,$i,'abbreviated',$monthName))===false) {
+						echo '***failed MMMM***';
 						return false;
+					}
 					$i+=self::$_mbstringAvailable ? mb_strlen($monthName,Yii::app()->charset) : strlen($monthName);
 					break;
 				}
@@ -135,6 +161,16 @@ class CDateTimeParser
 					$i+=strlen($month);
 					break;
 				}
+				case 'EEEE': //Long day of week
+				{
+					$dayName='';
+					if(($day=self::parseLongDay($value,$i,'wide',$dayName))===false) {
+						echo '***failed EEEE****';
+						return false;
+					}
+					$i+=self::$_mbstringAvailable ? mb_strlen($dayName,Yii::app()->charset) : strlen($dayName);
+					break;
+				}
 				case 'dd':
 				{
 					if(($day=self::parseInteger($value,$i,2,2))===false)
@@ -144,8 +180,10 @@ class CDateTimeParser
 				}
 				case 'd':
 				{
-					if(($day=self::parseInteger($value,$i,1,2))===false)
+					if(($day=self::parseInteger($value,$i,1,2))===false) {
+						echo '***failed d***';
 						return false;
+					}
 					$i+=strlen($day);
 					break;
 				}
@@ -210,13 +248,19 @@ class CDateTimeParser
 				default:
 				{
 					$tn=self::$_mbstringAvailable ? mb_strlen($token,Yii::app()->charset) : strlen($token);
-					if($i>=$n || ($token{0}!='?' && (self::$_mbstringAvailable ? mb_substr($value,$i,$tn,Yii::app()->charset) : substr($value,$i,$tn))!==$token))
+					if($i>=$n || ($token{0}!='?' && (self::$_mbstringAvailable ? mb_substr($value,$i,$tn,Yii::app()->charset) : substr($value,$i,$tn))!==$token)) {
+						$x = mb_substr($value,$i,$tn,Yii::app()->charset);
+						echo '***FAILED default x:+'.$x.'+ i:'.$i.' n:'.$n.' token{0}:+'.$token{0}.'+ tn:'.$tn.' token: +'.$token.'+***<br/>';
+						echo 'Pattern:'.$pattern.'<br/>value:'.$value.'<br/>';
+						die('xx');
 						return false;
+					}
 					$i+=$tn;
 					break;
 				}
 			}
 		}
+		
 		if($i<$n)
 			return false;
 
@@ -275,7 +319,7 @@ class CDateTimeParser
 		for($start=0,$i=1;$i<$n;++$i)
 		{
 			$c=self::$_mbstringAvailable ? mb_substr($pattern,$i,1,Yii::app()->charset) : substr($pattern,$i,1);
-			if($c!==$c0)
+			if($c!==$c0) //char is different than previous char
 			{
 				$tokens[]=self::$_mbstringAvailable ? mb_substr($pattern,$start,$i-$start,Yii::app()->charset) : substr($pattern,$start,$i-$start);
 				$c0=$c;
@@ -347,6 +391,57 @@ class CDateTimeParser
 
 		if(($v=array_search($monthName,$monthNames))===false && ($v=array_search($monthName,$monthNamesStandAlone))===false)
 			return false;
+		
 		return $v;
+	}
+
+	protected static function parseMonth2($value,$offset,$width,&$monthName)
+	{
+		$valueLength=self::$_mbstringAvailable ? mb_strlen($value,Yii::app()->charset) : strlen($value);
+		$monthNames=Yii::app()->getLocale()->getMonthNames($width,false);
+		foreach($monthNames as $k=>$v)
+			$monthNames[$k]=self::$_mbstringAvailable ? mb_strtolower($v,Yii::app()->charset) : strtolower($v);
+		$monthNamesStandAlone=Yii::app()->getLocale()->getMonthNames($width,true);
+		foreach($monthNamesStandAlone as $k=>$v)
+			$monthNamesStandAlone[$k]=self::$_mbstringAvailable ? mb_strtolower($v,Yii::app()->charset) : strtolower($v);
+		for($len=$valueLength; $len>0; $len--)
+		{
+			$monthName=self::$_mbstringAvailable ? mb_substr($value,$offset,$len,Yii::app()->charset) : substr($value,$offset,$len);
+			if ( ($v1 = array_search($monthName,$monthNames)) !== false )
+				break;
+			if ( ($v2 = array_search($monthName,$monthNamesStandAlone)) !== false )
+				break;
+		}
+		if ( isset($v1) )
+			return $v1;
+		else if ( isset($v2) )
+			return $v2;
+		else
+			return false;
+	}
+	
+	protected static function parseLongDay($value,$offset,$width,&$dayName)
+	{
+		$valueLength=self::$_mbstringAvailable ? mb_strlen($value,Yii::app()->charset) : strlen($value);
+		$dayNames=Yii::app()->getLocale()->getWeekDayNames($width,false);
+		foreach($dayNames as $k=>$v)
+			$dayNames[$k]=self::$_mbstringAvailable ? mb_strtolower($v,Yii::app()->charset) : strtolower($v);
+		$dayNamesStandAlone=Yii::app()->getLocale()->getWeekDayNames($width,true);
+		foreach($dayNamesStandAlone as $k=>$v)
+			$dayNamesStandAlone[$k]=self::$_mbstringAvailable ? mb_strtolower($v,Yii::app()->charset) : strtolower($v);
+		for($len=$valueLength; $len>0; $len--)
+		{
+			$dayName=self::$_mbstringAvailable ? mb_substr($value,$offset,$len,Yii::app()->charset) : substr($value,$offset,$len);
+			if ( ($v1 = array_search($dayName,$dayNames)) !== false )
+				break;
+			if ( ($v2 = array_search($dayName,$dayNamesStandAlone)) !== false )
+				break;
+		}
+		if ( isset($v1) )
+			return $v1;
+		else if ( isset($v2) )
+			return $v2;
+		else
+			return false;
 	}
 }
