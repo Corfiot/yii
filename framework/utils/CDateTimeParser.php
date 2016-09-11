@@ -17,6 +17,7 @@
  * <pre>
  * Pattern |      Description
  * ----------------------------------------------------
+ * EEEE    | Long day of week
  * d       | Day of month 1 to 31, no padding
  * dd      | Day of month 01 to 31, zero leading
  * M       | Month digit 1 to 12, no padding
@@ -101,7 +102,6 @@ class CDateTimeParser
 		while ( count($tokens)>0 && $tokens[0] == ' ')
 			array_shift($tokens);
 		
-		//echo '++++--------<br/>';print_r($tokens);echo '<br/>Value:'.$value.'<br/>';
 		$i=0;
 		$n=self::$_mbstringAvailable ? mb_strlen($value,Yii::app()->charset) : strlen($value);
 		foreach($tokens as $token)
@@ -110,7 +110,6 @@ class CDateTimeParser
 			{
 				case 'y':
 				case 'yyyy':
-				case 'y':
 				{
 					if(($year=self::parseInteger($value,$i,4,4))===false) {
 						echo '**FAILED y/yyyy**';
