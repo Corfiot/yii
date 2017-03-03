@@ -29,7 +29,7 @@ class CPgsqlColumnSchema extends CDbColumnSchema
 			$this->type='boolean';
 		elseif(preg_match('/(real|float|double)/',$dbType))
 			$this->type='double';
-		elseif(preg_match('/(integer|oid|serial|smallint)/',$dbType))
+		elseif(preg_match('/(integer|oid|serial|smallint|bigint)/',$dbType))
 			$this->type='integer';
 		else
 			$this->type='string';
