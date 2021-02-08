@@ -249,7 +249,7 @@ class CDateTimeParser
 					$tn=self::$_mbstringAvailable ? mb_strlen($token,Yii::app()->charset) : strlen($token);
 					if($i>=$n || ($token{0}!='?' && (self::$_mbstringAvailable ? mb_substr($value,$i,$tn,Yii::app()->charset) : substr($value,$i,$tn))!==$token)) {
 						$x = mb_substr($value,$i,$tn,Yii::app()->charset);
-						echo '***FAILED default x:+'.$x.'+ i:'.$i.' n:'.$n.' token{0}:+'.$token{0}.'+ tn:'.$tn.' token: +'.$token.'+***<br/>';
+						echo '***FAILED default x:+'.$x.'+ i:'.$i.' n:'.$n.' token{0}:+'.$token[0].'+ tn:'.$tn.' token: +'.$token.'+***<br/>';
 						echo 'Pattern:'.$pattern.'<br/>value:'.$value.'<br/>';
 						die('xx');
 						return false;
